@@ -1,0 +1,13 @@
+# Dependencias (se instalan con `npm install`)
+node_modules/
+
+# Salida del build: tsc compila src/ -> dist/. Mismo criterio que falai-nucleo:
+# dist/ no se versiona; se reconstruye con `npm run build`. Ojo: el consumidor
+# (file:) apunta a dist/, así que tras clonar hay que buildear antes de usarlo.
+dist/
+*.tsbuildinfo
+
+# Salida en runtime del capturador/registrador: frames PNG + movimientos.jsonl.
+# Normalmente se escriben en el cwd del proceso consumidor, no aquí, pero se
+# ignora por si se corre algo desde este paquete.
+shots/
