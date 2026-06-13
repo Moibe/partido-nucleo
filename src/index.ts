@@ -8,3 +8,14 @@ export type { NombreSeccion, SeccionEstado, EstadoCaptura } from './capturador.j
 // Registrador: movimientos del balón leídos del DOM del tracker (sin imágenes).
 export { registrador } from './registrador.js';
 export type { EventoBalon, EstadoMotion, MensajeMotion } from './registrador.js';
+
+// Marcador: tiempo, goles, equipos y goleadores leídos del DOM del scoreboard.
+export { marcador } from './marcador.js';
+export type {
+	DatosMarcador,
+	LadoMarcador,
+	UltimoGol,
+	EventoMarcador,
+	EstadoMarcador,
+	MensajeMarcador
+} from './marcador.js';
