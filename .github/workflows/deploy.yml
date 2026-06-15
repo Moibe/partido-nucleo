@@ -1,0 +1,31 @@
+name: deploy partido-nucleo 📦⚽
+
+# partido-nucleo NO es un servicio que "corra": es un paquete que quiniela bundlea.
+# Al empujar cambios del paquete, el droplet recompila su dist/, reconstruye quiniela
+# (que lo importa vía file:) y reinicia el proceso. Mismo patrón que deploy de quiniela.
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch: # permite correrlo a mano desde la pestaña Actions
+
+jobs:
+    deploy:
+        name: build paquete · rebuild quiniela · restart
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: install ssh key
+              run: |
+                  install -m 600 -D /dev/null ~/.ssh/id_rsa
+                  echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+                  ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+
+            # nvm no está en el PATH de una shell SSH no-interactiva: lo cargamos antes.
+            # Clona el paquete si falta, lo recompila, rebuildea quiniela y reinicia.
+            - name: rebuild package + quiniela on droplet
+              run: |
+                  ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use node >/dev/null && { [ -d ~/code/partido-nucleo ] || git clone git@github.com:Moibe/partido-nucleo.git ~/code/partido-nucleo; } && cd ~/code/partido-nucleo && git checkout main && git pull origin main && npm ci && npm run build && cd ~/code/quiniela && npm ci && npm run build && pm2 restart quiniela'
+
+            - name: cleanup
+              run: rm -rf ~/.ssh
