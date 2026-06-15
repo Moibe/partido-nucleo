@@ -29,7 +29,13 @@ export interface OpcionesNavegador {
 	cdpUrl?: string; // para 'conectar'
 	executablePath?: string; // para 'lanzar': ruta al Chrome/Chromium del sistema
 	headless?: boolean; // para 'lanzar' (default true)
+	args?: string[]; // para 'lanzar': flags de Chromium (default: seguros para server)
 }
+
+// Flags por defecto para correr en server (droplet, headless, como root):
+// --no-sandbox: Chrome como root no arranca sin esto. --disable-dev-shm-usage: el
+// /dev/shm chico de un droplet hace crashear Chrome. --disable-gpu: no hay GPU.
+const ARGS_SERVER = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
 
 /** Abre el navegador y su contexto según el modo. El modo sale de opts.modo o de la
  *  env PARTIDO_NAVEGADOR_MODO (default 'conectar'), para que un server pueda pasar a
@@ -45,9 +51,19 @@ export async function abrirNavegador(
 	if (modo === 'lanzar') {
 		const browser = await chromium.launch({
 			headless: opts.headless ?? true,
-			executablePath: opts.executablePath ?? process.env.PARTIDO_CHROME_PATH ?? undefined
+			executablePath: opts.executablePath ?? process.env.PARTIDO_CHROME_PATH ?? undefined,
+			args: opts.args ?? ARGS_SERVER
 		});
-		return { browser, contexto: await browser.newContext() }; // contexto limpio, sin login
+		const contexto = await browser.newContext(); // contexto limpio, sin login
+		// Solo leemos texto del DOM: bloquear imágenes/fuentes/media baja RAM, CPU y red.
+		// NO bloqueamos css/js/xhr/websocket: el SPA y sus datos en vivo los necesitan.
+		await contexto.route('**/*', (route) => {
+			const tipo = route.request().resourceType();
+			return tipo === 'image' || tipo === 'media' || tipo === 'font'
+				? route.abort()
+				: route.continue();
+		});
+		return { browser, contexto };
 	}
 
 	let browser: Browser;

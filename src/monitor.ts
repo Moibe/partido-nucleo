@@ -110,6 +110,16 @@ class MonitorMarcadores {
 		return { browser, contexto };
 	}
 
+	/** Cierra/desconecta el navegador y suelta el contexto. En 'lanzar' libera la RAM
+	 *  del Chromium; en 'conectar' solo desconecta (el Chrome del usuario sigue vivo). */
+	private async cerrarNavegador(): Promise<void> {
+		if (this.browser) {
+			await this.browser.close().catch(() => {});
+			this.browser = null;
+		}
+		this.contexto = null;
+	}
+
 	/** Agrega un partido a la vigilancia. Reusa su pestaña si ya está abierta; si
 	 *  no, la abre (SIN traerla al frente). Idempotente: si ya lo vigilamos,
 	 *  devuelve su estado actual sin duplicar. */
@@ -135,6 +145,8 @@ class MonitorMarcadores {
 			await seccion.waitFor({ state: 'visible', timeout: 20_000 });
 		} catch {
 			if (paginaPropia) await page.close().catch(() => {});
+			// Si este alta fallido era lo único en vuelo, no dejes el navegador colgado.
+			if (this.partidos.size === 0) await this.cerrarNavegador();
 			throw new Error(`No encontré el marcador (${SELECTOR_MARCADOR}) en ${url}. ¿Es un partido en vivo?`);
 		}
 
@@ -173,6 +185,9 @@ class MonitorMarcadores {
 		this.partidos.delete(clave);
 		if (vivo.paginaPropia) await vivo.page.close().catch(() => {});
 		this.avisar({ tipo: 'baja', url: clave });
+		// Idle: sin partidos vigilados, libera el navegador (RAM ≈ 0). El próximo
+		// agregar() lo relanza solo (asegurar()).
+		if (this.partidos.size === 0) await this.cerrarNavegador();
 	}
 
 	/** Cambia el muestreo de un partido vigilado, al vuelo (mismo piso de 250 ms). */
@@ -198,12 +213,7 @@ class MonitorMarcadores {
 			vivo.est.activo = false;
 		}
 		this.partidos.clear();
-		if (this.browser) {
-			// conectar: solo desconecta (el Chrome sigue). lanzar: cierra el Chromium propio.
-			await this.browser.close().catch(() => {});
-			this.browser = null;
-		}
-		this.contexto = null;
+		await this.cerrarNavegador();
 	}
 
 	private programar(clave: string, ms: number) {
